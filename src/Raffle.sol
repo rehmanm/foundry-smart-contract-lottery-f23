@@ -14,6 +14,11 @@ contract Raffle is VRFConsumerBaseV2 {
     error Raffle__NotEnoughEthSent();
     error Raffle__TransferFailed();
     error Raffle__NotOpen();
+    error Raffle__UpkeepNotNeeded(
+        uint256 currentBalance,
+        uint256 numPlayers,
+        uint256 raffleState
+    );
 
     /* Type Decleration */
     enum RaffleState {
@@ -72,18 +77,35 @@ contract Raffle is VRFConsumerBaseV2 {
         emit EnteredRaffle(msg.sender);
     }
 
+    function checkUpKeep(
+        bytes memory /* checkData */
+    ) public view returns (bool upkeepNeeded, bytes memory /* performData */) {
+        bool timeHasPassed = block.timestamp - s_lastTimeStamp >= i_interval;
+        bool isOpen = s_raffleState == RaffleState.OPEN;
+        bool hasBalance = address(this).balance > 0;
+        bool hasPlayers = s_players.length > 0;
+
+        upkeepNeeded = timeHasPassed && isOpen && hasBalance && hasPlayers;
+        return (upkeepNeeded, "0x0");
+    }
+
     // 1. Get a random number
     // 2. Pick a winner
-    function pickWinner() external {
+    function performUpKeep(bytes memory /* performData */) external {
         //check to see if enough time has
+        (bool upKeepNeed, ) = checkUpKeep("");
 
-        if (block.timestamp - s_lastTimeStamp < i_interval) {
-            revert();
+        if (!upKeepNeed) {
+            revert Raffle__UpkeepNotNeeded(
+                address(this).balance,
+                s_players.length,
+                uint256(s_raffleState)
+            );
         }
 
         s_raffleState = RaffleState.CALCULATING;
 
-        uint256 requestId = i_vrfCooridinator.requestRandomWords(
+        i_vrfCooridinator.requestRandomWords(
             i_gaslane,
             i_subscriptionId,
             REQUEST_CONFIRMATIONS,
@@ -93,7 +115,7 @@ contract Raffle is VRFConsumerBaseV2 {
     }
 
     function fulfillRandomWords(
-        uint256 _requestId,
+        uint256 /* _requestId */,
         uint256[] memory _randomWords
     ) internal override {
         uint256 indexOfWinner = _randomWords[0] % s_players.length;
