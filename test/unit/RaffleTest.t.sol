@@ -8,14 +8,17 @@ import {HelperConfig} from "../../script/HelperConfig.s.sol";
 import {Test, console} from "forge-std/Test.sol";
 
 contract RaffleTest is Test {
+    event EnteredRaffle(address indexed player);
+
     Raffle raffle;
     HelperConfig helperConfig;
     uint256 entranceFee;
     uint256 interval;
     address vrfCooridinator;
     bytes32 gaslane;
-    uint64 subscriptionId;
+    uint256 subscriptionId;
     uint32 callbackGasLimit;
+    address link;
 
     address public PLAYER = makeAddr("player");
     uint256 public STARTING_USER_BALANCE = 10 ether;
@@ -29,7 +32,8 @@ contract RaffleTest is Test {
             vrfCooridinator,
             gaslane,
             subscriptionId,
-            callbackGasLimit
+            callbackGasLimit,
+            link
         ) = helperConfig.activeNetworkConfig();
         vm.deal(PLAYER, STARTING_USER_BALANCE);
     }
@@ -50,5 +54,27 @@ contract RaffleTest is Test {
         raffle.enterRaffle{value: entranceFee}();
 
         assert(raffle.getPlayer(0) == PLAYER);
+    }
+
+    function testEmitsOnEntrance() public {
+        vm.prank(PLAYER);
+        vm.expectEmit(true, false, false, false, address(raffle));
+
+        emit EnteredRaffle(PLAYER);
+
+        raffle.enterRaffle{value: entranceFee}();
+    }
+
+    function testCantEnterWhenRaffleIsCalculating() public {
+        vm.prank(PLAYER);
+        raffle.enterRaffle{value: entranceFee}();
+        vm.warp(block.timestamp + interval + 1);
+        vm.roll(block.number + 1);
+
+        raffle.performUpKeep("");
+
+        vm.expectRevert(Raffle.Raffle__NotOpen.selector);
+        vm.prank(PLAYER);
+        raffle.enterRaffle{value: entranceFee}();
     }
 }
