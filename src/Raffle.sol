@@ -92,7 +92,7 @@ contract Raffle is VRFConsumerBaseV2 {
     // 1. Get a random number
     // 2. Pick a winner
     function performUpkeep(bytes memory /* performData */) external {
-        //check to see if enough time has
+        //check to see if enough time has passed
         (bool upKeepNeed, ) = checkUpkeep("");
 
         if (!upKeepNeed) {
