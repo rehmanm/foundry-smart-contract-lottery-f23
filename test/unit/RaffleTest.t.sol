@@ -35,7 +35,8 @@ contract RaffleTest is Test {
             gaslane,
             subscriptionId,
             callbackGasLimit,
-            link
+            link,
+
         ) = helperConfig.activeNetworkConfig();
         vm.deal(PLAYER, STARTING_USER_BALANCE);
     }
@@ -201,9 +202,16 @@ contract RaffleTest is Test {
     /// fulfillRandomWords ///
     //////////////////////////
 
+    modifier skipFork() {
+        if (block.chainid != 31337) {
+            return;
+        }
+        _;
+    }
+
     function testFulfillRandomWordsCanOnlyBeCalledAfterPerformUpkeep(
         uint256 randomRequestId
-    ) public raffleEnteredAndTimePassed {
+    ) public raffleEnteredAndTimePassed skipFork {
         //Arrange
         vm.expectRevert("nonexistent request");
         VRFCoordinatorV2Mock(vrfCooridinator).fulfillRandomWords(
@@ -215,6 +223,7 @@ contract RaffleTest is Test {
     function testFulfillRandomWordsPicksAWinnerAndSendsMoney()
         public
         raffleEnteredAndTimePassed
+        skipFork
     {
         //Arrange
         uint256 additionalEntrants = 5;
